@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Egg Balance Game</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 0; padding: 0; }
+    #menu, #pcView, #mobileView { display: none; padding-top: 50px; }
+    canvas { background: #eef; display: block; margin: auto; }
+  </style>
+</head>
+<body>
+  <!-- 🧭 Main Menu -->
+  <div id="menu">
+    <h1>Egg Balance Game</h1>
+    <button onclick="startPC()">PC</button>
+    <button onclick="startMobile()">Mobile</button>
+  </div>
+
+  <!-- 🖥️ PC Game View -->
+  <div id="pcView">
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+  </div>
+
+  <!-- 📱 Mobile Controller -->
+  <div id="mobileView">
+    <h2>Move your phone to balance the egg!</h2>
+    <p>(Tilt left/right to control)</p>
+  </div>
+
+  <script>
+    const menu = document.getElementById('menu');
+    const pcView = document.getElementById('pcView');
+    const mobileView = document.getElementById('mobileView');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas?.getContext('2d');
+
+    let spoonTilt = 0;
+    let eggX = canvas?.width / 2;
+    let eggY = 200;
+    let velocity = 0;
+
+    const socket = new WebSocket('ws://localhost:8080');
+
+    function startPC() {
+      menu.style.display = 'none';
+      pcView.style.display = 'block';
+
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        spoonTilt = data.tilt * 0.05;
+      };
+
+      function update() {
+        velocity += spoonTilt;
+        eggX += velocity;
+        velocity *= 0.98;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'gray';
+        ctx.fillRect(eggX - 50, eggY + 20, 100, 10);
+        ctx.beginPath();
+        ctx.arc(eggX, eggY, 20, 0, Math.PI * 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+
+        if (eggX < 0 || eggX > canvas.width) {
+          ctx.fillStyle = 'red';
+          ctx.font = '30px Arial';
+          ctx.fillText('Egg Dropped!', canvas.width / 2 - 80, 100);
+        }
+
+        requestAnimationFrame(update);
+      }
+
+      update();
+    }
+
+    function startMobile() {
+      menu.style.display = 'none';
+      mobileView.style.display = 'block';
+
+      window.addEventListener('deviceorientation', (event) => {
+        const tilt = event.gamma;
+        socket.send(JSON.stringify({ tilt }));
+      });
+    }
+
+    // Show menu on load
+    menu.style.display = 'block';
+  </script>
+</body>
+</html>
